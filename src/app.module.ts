@@ -6,21 +6,34 @@ import { StudentService } from './student/student.service';
 import { StudentController } from './student/student.controller';
 import { StudentModule } from './student/student.module';
 import { redisStore } from 'cache-manager-redis-yet';
+import Redis from 'ioredis';
 
 @Module({
-  imports: [
-    CacheModule.registerAsync({
-      isGlobal: true,
-      useFactory: () => ({
-        store: redisStore,
-        host: process.env.REDIS_HOST ?? 'localhost',
-        port: Number(process.env.REDIS_PORT ?? 6379),
-        ttl: 30, // seconds (default caching duration)
+  imports: [CacheModule.registerAsync({
+    isGlobal: true,
+    useFactory: async () => ({
+      ttl: 30 * 1000,
+      store: await redisStore({
+        socket: {
+          host: process.env.HOST_NAME || 'localhost',
+          port: parseInt(process.env.PORT || '6379'),
+        },
       }),
     }),
-    StudentModule,
-  ],
+  }), StudentModule],
   controllers: [AppController, StudentController],
-  providers: [AppService, StudentService],
+  providers: [
+    AppService,
+    StudentService,
+    {
+      provide: 'REDIS_CLIENT',
+      useFactory: () => {
+        return new Redis({
+          host: process.env.HOST_NAME || 'localhost',
+          port: parseInt(process.env.PORT || '6379'),
+        });
+      },
+    },
+  ],
 })
-export class AppModule {}
+export class AppModule { }
